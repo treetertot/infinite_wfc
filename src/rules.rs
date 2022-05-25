@@ -57,11 +57,10 @@ impl Rules {
     pub fn get_surrounds_and_weight(&self, possibility: Possibility) -> (&[[Possibility; 8]], &[u32]) {
         let index = possibility.0 as usize;
         let start = self.starts[index];
-        let end = match self.starts.get(index + 1) {
-            Some(n) => *n,
-            None => self.starts.len()
-        };
-        (&self.surrounds[start..end], &self.weights[start..end])
+        match self.starts.get(index + 1) {
+            Some(&end) => (&self.surrounds[start..end], &self.weights[start..end]),
+            None => (&self.surrounds[start..], &self.weights[start..])
+        }
     }
     pub fn check(&self, center: &[Possibility], surroundings: &[&[Possibility]; 8], possible_buf: &mut Vec<Possibility>, score_buf: &mut Vec<u32>) {
         possible_buf.clear();
