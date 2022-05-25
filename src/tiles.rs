@@ -53,6 +53,18 @@ impl<T> Default for UniqueSlices<T> {
     }
 }
 
+#[test]
+fn identifying() {
+    let mut ider = UniqueSlices::new();
+    let a = [3, 6, 4];
+    let a_id = ider.identify(&a);
+    let b = [5];
+    let b_id = ider.identify(&b);
+    assert_eq!(a_id, ider.identify(&a));
+    assert_ne!(a_id, b_id);
+    assert_eq!(&b, ider.get(b_id));
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Possibility (pub u32);
 

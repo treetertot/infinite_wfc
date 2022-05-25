@@ -20,10 +20,7 @@ pub struct Evolver {
 }
 impl Evolver {
     pub fn new(rules: Rules) -> Evolver {
-        let base: Vec<_> = (0..rules.num_starts()).map(|n| Possibility(n as u32)).collect();
-        let mut possible_buf = Vec::new();
-        let mut score_buf = Vec::new();
-        rules.check(&base, &[&base; 8], &mut possible_buf, &mut score_buf);
+        let (possible_buf, score_buf) = rules.possible();
 
         let mut possibilities = UniqueSlices::new();
         let mut weights = UniqueSlices::new();

@@ -1,4 +1,4 @@
-use std::iter::repeat_with;
+use std::{iter::repeat_with, mem::replace};
 
 use crate::tiles::Possibility;
 
@@ -47,13 +47,17 @@ impl Rules {
         }
         Rules { surrounds, weights, starts }
     }
-    pub(crate) fn num_starts(&self) -> usize {
-        self.starts.len()
+    pub fn possible(&self) -> (Vec<Possibility>, Vec<u32>) {
+        let base: Vec<_> = (0..self.starts.len()).map(|n| Possibility(n as u32)).collect();
+        let mut possible_buf = Vec::new();
+        let mut score_buf = Vec::new();
+        self.check(&base, &[&base; 8], &mut possible_buf, &mut score_buf);
+        (possible_buf, score_buf)
     }
     pub fn get_surrounds_and_weight(&self, possibility: Possibility) -> (&[[Possibility; 8]], &[u32]) {
         let index = possibility.0 as usize;
         let start = self.starts[index];
-        let end = match self.starts.get(index) {
+        let end = match self.starts.get(index + 1) {
             Some(n) => *n,
             None => self.starts.len()
         };
@@ -62,26 +66,62 @@ impl Rules {
     pub fn check(&self, center: &[Possibility], surroundings: &[&[Possibility]; 8], possible_buf: &mut Vec<Possibility>, score_buf: &mut Vec<u32>) {
         possible_buf.clear();
         score_buf.clear();
-        let scored_retained = center.iter().map(|&possibility| {
-            let (surrounds, weights) = self.get_surrounds_and_weight(possibility);
-            let score = surrounds
-                .iter()
+        let p_s = center.iter().filter_map(|center_poss| {
+            let (surrounds, weights) = self.get_surrounds_and_weight(center_poss.clone());
+            let score: u32 = surrounds.iter()
                 .zip(weights)
-                .filter(|&(target, _)| {
-                    target
-                        .iter()
-                        .zip(surroundings)
-                        .any(|(cell_target, options)| {
-                            options.contains(cell_target)
-                        })
+                .map(|(targets, weight)|  {
+                    let matches = targets.iter().zip(surroundings).all(|(target, options)| {
+                        options.contains(target)
+                    });
+                    match matches {
+                        true => *weight,
+                        false => 0
+                    }
                 })
-                .map(|(_, n)| *n)
-                .sum::<u32>();
-            (possibility, score)
-        }).filter(|(_, score)| *score != 0);
-        for (retained, score) in scored_retained {
-            possible_buf.push(retained);
-            score_buf.push(score);
-        }
+                .sum();
+            match score {
+                0 => None,
+                _ => Some((*center_poss, score))
+            }
+        });
+        let mut duo = (replace(possible_buf, Vec::new()), replace(score_buf, Vec::new()));
+        duo.extend(p_s);
+        *possible_buf = duo.0;
+        *score_buf = duo.1;
     }
+}
+
+#[test]
+fn checking() {
+    let ruleset = [
+        Rule {
+            tiles:
+                [
+                    0, 1, 0,
+                    1, 0, 1,
+                    0, 1, 0,
+                ],
+            weight: 1
+        },
+        Rule {
+            tiles:
+                [
+                    1, 0, 1,
+                    0, 1, 0,
+                    1, 0, 1,
+                ],
+            weight: 1
+        },
+    ];
+    let mut possible_buf = Vec::new();
+    let mut score_buf = Vec::new();
+    let rules = Rules::new(&ruleset);
+    let (center, _) = rules.possible();
+    rules.check(&center, &[&center; 8], &mut possible_buf, &mut score_buf);
+    assert_eq!(possible_buf, center);
+    let mut surroundings = [&center[..]; 8];
+    surroundings[0] = &center[..1];
+    rules.check(&center, &surroundings, &mut possible_buf, &mut score_buf);
+    assert_eq!(possible_buf.len(), 1);
 }
